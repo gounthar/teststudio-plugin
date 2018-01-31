@@ -1,10 +1,7 @@
-package org.jenkinsci.plugins;
+package org.jenkinsci.plugins.testsudio;
 
-import hudson.EnvVars;
 import hudson.model.*;
 import hudson.remoting.Callable;
-import jenkins.model.Jenkins;
-import org.jenkinsci.plugins.convert.JsonToXML;
 import hudson.Launcher;
 import hudson.Extension;
 import hudson.FilePath;
@@ -19,22 +16,21 @@ import org.kohsuke.stapler.QueryParameter;
 import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
 import java.io.*;
-import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jenkins.tasks.SimpleBuildStep;
 
-import static org.jenkinsci.plugins.Constants.AIILIST;
-import static org.jenkinsci.plugins.Constants.TSTEST;
+import static org.jenkinsci.plugins.testsudio.Constants.AIILIST;
+import static org.jenkinsci.plugins.testsudio.Constants.TSTEST;
 
-import static org.jenkinsci.plugins.Utils.isEmpty;
+import static org.jenkinsci.plugins.testsudio.Utils.isEmpty;
 
 @SuppressWarnings("unused")
-public class TestBuilder extends Builder implements SimpleBuildStep, Serializable {
+public class TestStudioTestBuilder extends Builder implements SimpleBuildStep, Serializable {
 
     private static final long serialVersionUID = 154878531464894L;
+
     private String artOfTestRunnerPath;
     private String testPath;
     private String settingsPath;
@@ -48,7 +44,7 @@ public class TestBuilder extends Builder implements SimpleBuildStep, Serializabl
 
 
     @DataBoundConstructor
-    public TestBuilder(String artOfTestRunnerPath,
+    public TestStudioTestBuilder(String artOfTestRunnerPath,
                        String projectRoot,
                        String testPath,
                        boolean testAsUnit,
@@ -254,11 +250,11 @@ public class TestBuilder extends Builder implements SimpleBuildStep, Serializabl
         @SuppressWarnings("unused")
         public FormValidation doCheckArtOfTestRunnerPath(@QueryParameter String artOfTestRunnerPath) throws IOException, ServletException {
             if (artOfTestRunnerPath == null || artOfTestRunnerPath.length() == 0) {
-                return FormValidation.error(Messages.TestBuilder_DescriptorImpl_errors_zero_artOfTestRunnerPath());
+                return FormValidation.error(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_zero_artOfTestRunnerPath());
             } else {
                 File f = new File(artOfTestRunnerPath);
                 if (!f.exists()) {
-                    return FormValidation.error(Messages.TestBuilder_DescriptorImpl_errors_notFound_artOfTestRunnerPath());
+                    return FormValidation.error(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_notFound_artOfTestRunnerPath());
                 }
             }
             return FormValidation.ok();
@@ -268,13 +264,13 @@ public class TestBuilder extends Builder implements SimpleBuildStep, Serializabl
         public FormValidation doCheckTestPath(@QueryParameter String testPath) throws IOException, ServletException {
 
             if (testPath == null || testPath.length() == 0) {
-                return FormValidation.error(Messages.TestBuilder_DescriptorImpl_errors_zero_testPath());
+                return FormValidation.error(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_zero_testPath());
             } else {
                 File f = new File(testPath);
                 if (!f.exists()) {
-                    return FormValidation.error(Messages.TestBuilder_DescriptorImpl_errors_notFound_testPath());
+                    return FormValidation.error(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_notFound_testPath());
                 } else if (!testPath.endsWith(TSTEST) && !testPath.endsWith(AIILIST)) {
-                    return FormValidation.error(Messages.TestBuilder_DescriptorImpl_errors_extension_testPath());
+                    return FormValidation.error(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_extension_testPath());
                 }
             }
 
@@ -288,7 +284,7 @@ public class TestBuilder extends Builder implements SimpleBuildStep, Serializabl
                 File f = new File(settingsPath);
                 System.out.println(f.getCanonicalPath());
                 if (!f.exists()) {
-                    return FormValidation.warning(Messages.TestBuilder_DescriptorImpl_errors_notFound_settingsPath());
+                    return FormValidation.warning(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_notFound_settingsPath());
                 }
             }
 
@@ -301,7 +297,7 @@ public class TestBuilder extends Builder implements SimpleBuildStep, Serializabl
             if (!isEmpty(outputPath)) {
                 File f = new File(outputPath);
                 if (!f.exists()) {
-                    return FormValidation.warning(Messages.TestBuilder_DescriptorImpl_errors_notFound_outputPath());
+                    return FormValidation.warning(org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_errors_notFound_outputPath());
                 }
             }
 
@@ -315,7 +311,7 @@ public class TestBuilder extends Builder implements SimpleBuildStep, Serializabl
 
         @Override
         public String getDisplayName() {
-            return Messages.TestBuilder_DescriptorImpl_DisplayName();
+            return org.jenkinsci.plugins.testsudio.Messages.TestStudioTestBuilder_DescriptorImpl_DisplayName();
         }
 
     }

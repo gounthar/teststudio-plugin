@@ -1,11 +1,11 @@
-package org.jenkinsci.plugins.convert;
+package org.jenkinsci.plugins.testsudio.convert;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.internal.LinkedTreeMap;
 import com.google.gson.stream.JsonReader;
-import org.jenkinsci.plugins.data.Testcase;
-import org.jenkinsci.plugins.data.Testsuite;
-import org.jenkinsci.plugins.data.Testsuites;
+import org.jenkinsci.plugins.testsudio.data.Testcase;
+import org.jenkinsci.plugins.testsudio.data.Testsuite;
+import org.jenkinsci.plugins.testsudio.data.Testsuites;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -20,7 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import static org.jenkinsci.plugins.Utils.isEmpty;
+import static org.jenkinsci.plugins.testsudio.Utils.isEmpty;
 
 public class JsonToXML {
 

@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins;
+package org.jenkinsci.plugins.testsudio;
 
 public class Constants {
     public static final String TSTEST = "tstest";

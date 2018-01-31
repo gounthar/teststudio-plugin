@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.data;
+package org.jenkinsci.plugins.testsudio.data;
 
 import javax.xml.bind.annotation.*;
 import java.io.Serializable;
