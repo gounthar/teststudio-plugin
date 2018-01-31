@@ -1,28 +1,26 @@
 package org.jenkinsci.plugins;
 
+import hudson.EnvVars;
+import hudson.model.*;
+import hudson.remoting.Callable;
+import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.convert.JsonToXML;
 import hudson.Launcher;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.model.Result;
 import hudson.util.FormValidation;
-import hudson.model.AbstractProject;
-import hudson.model.Run;
-import hudson.model.TaskListener;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
+import org.jenkinsci.remoting.RoleChecker;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.io.*;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,12 +28,13 @@ import jenkins.tasks.SimpleBuildStep;
 
 import static org.jenkinsci.plugins.Constants.AIILIST;
 import static org.jenkinsci.plugins.Constants.TSTEST;
-import static org.jenkinsci.plugins.Utils.fileExists;
+
 import static org.jenkinsci.plugins.Utils.isEmpty;
 
 @SuppressWarnings("unused")
-public class TestBuilder extends Builder implements SimpleBuildStep {
+public class TestBuilder extends Builder implements SimpleBuildStep, Serializable {
 
+    private static final long serialVersionUID = 154878531464894L;
     private String artOfTestRunnerPath;
     private String testPath;
     private String settingsPath;
@@ -71,135 +70,181 @@ public class TestBuilder extends Builder implements SimpleBuildStep {
 
     @Override
     public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws InterruptedException, IOException {
-        String workspacePath = run.getEnvironment(listener).get("WORKSPACE", null);
-        String outputFileName = "TestStudioResults-" + System.currentTimeMillis();
-        String command = buildCommand(workspacePath, outputFileName);
 
-        if (this.testAsUnit) {
-            outputFileName += ".junit";
+        MyCallable task = new MyCallable(String.valueOf(workspace), Constants.TEST_STUDIO_RESULTS_DIR,
+                                this.artOfTestRunnerPath, this.testAsUnit, this.settingsPath, this.projectRoot);
+
+
+        String result = launcher.getChannel().call(task);
+        listener.getLogger().println(result);
+        if (result != null && result.contains("Overall Result:")){
+            run.setResult(Result.SUCCESS);
         } else {
-            outputFileName += ".junitstep";
-        }
-
-        prepareWorkspace(workspacePath);
-        Runtime rt = Runtime.getRuntime();
-        Process proc = rt.exec(command);
-
-        BufferedReader stdInput = new BufferedReader(new
-                InputStreamReader(proc.getInputStream()));
-
-        BufferedReader stdError = new BufferedReader(new
-                InputStreamReader(proc.getErrorStream()));
-
-        listener.getLogger().println("Command output:\n");
-        String s = null;
-        while ((s = stdInput.readLine()) != null) {
-            listener.getLogger().println(s);
-        }
-
-        // read any errors from the attempted command
-        listener.getLogger().println("STD Error output (if any):\n");
-        while ((s = stdError.readLine()) != null) {
-            listener.error(s);
-        }
-
-        String fullOutputName = workspace + "\\" + Constants.TEST_STUDIO_RESULTS_DIR + "\\" + outputFileName + ".xml";
-        String fullConvertedFileName = workspace + "\\" + Constants.TEST_STUDIO_RESULTS_DIR + "\\" + getConvertedFileName();
-
-        if (!fileExists(fullOutputName)) {
-            listener.error("Result file doesn't exists: " + fullOutputName);
             run.setResult(Result.FAILURE);
         }
     }
 
-    private void prepareWorkspace(String workspace) {
-        File index = new File(workspace + "/" + Constants.TEST_STUDIO_RESULTS_DIR);
-        if (!index.exists()) {
-            index.mkdir();
-        } else {
-            String[] entries = index.list();
-            for (String s : entries) {
-                File currentFile = new File(index.getPath(), s);
-                currentFile.delete();
+    class MyCallable implements Callable<String, IOException> {
+        private static final long serialVersionUID = 95483212356481L;
+
+        private String workspace;
+        private String resultsDir;
+        private String artOfTestRunnerPath;
+        private boolean testAsUnit;
+        private String settings;
+        private String projectRoot;
+
+        public MyCallable(String workspace, String resultsDir, String artOfTestRunnerPath, boolean testAsUnit, String settings, String projectRoot){
+            this.workspace = workspace;
+            this.resultsDir = resultsDir;
+            this.testAsUnit = testAsUnit;
+            this.artOfTestRunnerPath = artOfTestRunnerPath;
+            this.settings = settings;
+            this.projectRoot = projectRoot;
+        }
+
+        @Override
+        public void checkRoles(RoleChecker roleChecker) throws SecurityException {
+
+        }
+
+        @Override
+        public String call() throws IOException {
+
+            String outputFileName = "TestStudioResults-" + System.currentTimeMillis();
+
+            String output = "";
+            if (this.testAsUnit) {
+                outputFileName += ".junit";
+            } else {
+                outputFileName += ".junitstep";
             }
+
+            String command = buildCommand(this.workspace, outputFileName, this.resultsDir, this.settings, this.projectRoot);
+            output +="Command: \n" + command +"\n";
+
+            String fullOutputName = this.workspace + "\\" + this.resultsDir + "\\" + outputFileName + ".xml";
+
+            Runtime rt = Runtime.getRuntime();
+            Process proc = rt.exec(command);
+
+            BufferedReader stdInput = new BufferedReader(new
+                    InputStreamReader(proc.getInputStream()));
+
+            BufferedReader stdError = new BufferedReader(new
+                    InputStreamReader(proc.getErrorStream()));
+
+            output += "\nCommand output:\n";
+            String s = null;
+            while ((s = stdInput.readLine()) != null) {
+                output += s + "\n";
+            }
+
+            // read any errors from the attempted command
+            output +="\nSTD Error output (if any):\n";
+            while ((s = stdError.readLine()) != null) {
+                output += s + "\n";
+            }
+            try {
+                proc.waitFor();
+            } catch (InterruptedException e) {
+            }
+            output +="\nCommand exit code: " + proc.exitValue() +" \n";
+            return output;
+        }
+
+        private void prepareWorkspace(String workspace) {
+            File index = new File(this.workspace + "\\" + this.resultsDir);
             if (!index.exists()) {
                 index.mkdir();
-            }
-        }
-    }
-
-
-    private String buildCommand(String workspace, String outputFileName) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(this.normalizeExecutable(artOfTestRunnerPath));
-        sb.append(" ");
-        sb.append(testType.toString());
-        sb.append("=\"");
-        sb.append(testPath);
-        sb.append("\"");
-        if (!isEmpty(settingsPath)) {
-            sb.append(" ");
-            sb.append("settings=\"");
-            sb.append(normalizePath(workspace, settingsPath));
-            sb.append("\"");
-        }
-
-        if (!isEmpty(projectRoot)) {
-            sb.append(" ");
-            sb.append("root=\"");
-            sb.append(normalizePath(workspace, projectRoot));
-            sb.append("\"");
-        }
-
-        sb.append(" ");
-        sb.append("out=\"");
-        sb.append(normalizePath(workspace, Constants.TEST_STUDIO_RESULTS_DIR));
-        sb.append("\"");
-        sb.append(" ");
-        sb.append("result=\"");
-        sb.append(outputFileName);
-        sb.append("\"");
-        if (this.testAsUnit) {
-            sb.append(" junit");
-        } else {
-            sb.append(" junitstep");
-        }
-
-        return sb.toString();
-    }
-
-
-    private String getConvertedFileName() {
-
-        return "TestStudioResults-" + System.currentTimeMillis() + ".xml";
-    }
-
-    private String normalizeExecutable(String artOfTestRunnerPath) {
-        String pathToLowerCase = artOfTestRunnerPath.toLowerCase();
-        if (pathToLowerCase.endsWith("\\")) {
-            return artOfTestRunnerPath + "ArtOfTest.Runner.exe";
-        } else if (!pathToLowerCase.endsWith("ArtOfTest.Runner.exe".toLowerCase())) {
-            return artOfTestRunnerPath + "\\ArtOfTest.Runner.exe";
-        }
-        return artOfTestRunnerPath;
-    }
-
-    private String normalizePath(String workspace, String path){
-        String result;
-        Matcher m = Pattern.compile("^\\D:\\\\.*$").matcher(path);
-        if (!m.find()) {
-            if (path.startsWith("\\")) {
-                result = workspace + path;
             } else {
-                result = workspace + "\\" + path;
+                String[] entries = index.list();
+                for (String s : entries) {
+                    File currentFile = new File(index.getPath(), s);
+                    currentFile.delete();
+                }
+                if (!index.exists()) {
+                    index.mkdir();
+                }
             }
-        } else {
-            result = path;
         }
-        if (result.endsWith("\\")){
-            result = result.substring(0, result.length() - 1);
+
+        private boolean fileExists(String file){
+            File f = new File(file);
+            if(f.exists() && !f.isDirectory()) {
+                return true;
+            }
+            return false;
         }
-        return result;
+
+        private String buildCommand(String workspace, String outputFileName, String resultDir, String settingsPath, String projectRoot) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("\"");
+            sb.append(this.normalizeExecutable(artOfTestRunnerPath));
+            sb.append("\"");
+            sb.append(" ");
+            sb.append(testType.toString());
+            sb.append("=\"");
+            sb.append(testPath);
+            sb.append("\"");
+            if (!isEmpty(settingsPath)) {
+                sb.append(" ");
+                sb.append("settings=\"");
+                sb.append(normalizePath(workspace, settingsPath));
+                sb.append("\"");
+            }
+
+            if (!isEmpty(projectRoot)) {
+                sb.append(" ");
+                sb.append("root=\"");
+                sb.append(normalizePath(workspace, projectRoot));
+                sb.append("\"");
+            }
+
+            sb.append(" ");
+            sb.append("out=\"");
+            sb.append(normalizePath(workspace, resultDir));
+            sb.append("\"");
+            sb.append(" ");
+            sb.append("result=\"");
+            sb.append(outputFileName);
+            sb.append("\"");
+            if (this.testAsUnit) {
+                sb.append(" junit");
+            } else {
+                sb.append(" junitstep");
+            }
+
+            return sb.toString();
+        }
+
+        private String normalizeExecutable(String artOfTestRunnerPath) {
+            String pathToLowerCase = artOfTestRunnerPath.toLowerCase();
+            if (pathToLowerCase.endsWith("\\")) {
+                return artOfTestRunnerPath + "ArtOfTest.Runner.exe";
+            } else if (!pathToLowerCase.endsWith("ArtOfTest.Runner.exe".toLowerCase())) {
+                return artOfTestRunnerPath + "\\ArtOfTest.Runner.exe";
+            }
+            return artOfTestRunnerPath;
+        }
+
+        private String normalizePath(String workspace, String path){
+            String result;
+            Matcher m = Pattern.compile("^\\D:\\\\.*$").matcher(path);
+            if (!m.find()) {
+                if (path.startsWith("\\")) {
+                    result = workspace + path;
+                } else {
+                    result = workspace + "\\" + path;
+                }
+            } else {
+                result = path;
+            }
+            if (result.endsWith("\\")){
+                result = result.substring(0, result.length() - 1);
+            }
+            return result;
+        }
     }
 
     @SuppressWarnings("unused")

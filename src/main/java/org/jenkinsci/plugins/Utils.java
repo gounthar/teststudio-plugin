@@ -10,11 +10,5 @@ public class Utils {
         return false;
     }
 
-    public static boolean fileExists(String file){
-        File f = new File(file);
-        if(f.exists() && !f.isDirectory()) {
-            return true;
-        }
-        return false;
-    }
+
 }
