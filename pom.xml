@@ -9,7 +9,7 @@
     </parent>
     <artifactId>teststudio</artifactId>
     <groupId>org.jenkins-ci.plugins</groupId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
     <packaging>hpi</packaging>
     <properties>
         <jenkins.version>2.7.3</jenkins.version>
@@ -35,7 +35,8 @@
         <connection>scm:git:git://github.com/jenkinsci/teststudio-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/teststudio-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/teststudio-plugin</url>
-    </scm>
+      <tag>teststudio-1.0.2</tag>
+  </scm>
 
     <dependencies>
         <dependency>
