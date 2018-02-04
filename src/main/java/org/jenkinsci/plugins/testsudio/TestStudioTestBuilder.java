@@ -110,7 +110,7 @@ public class TestStudioTestBuilder extends Builder implements SimpleBuildStep, S
 
             String outputFileName = "TestStudioResults-" + System.currentTimeMillis();
 
-            String output = "";
+            StringBuffer output = new StringBuffer();
             if (this.testAsUnit) {
                 outputFileName += ".junit";
             } else {
@@ -118,7 +118,7 @@ public class TestStudioTestBuilder extends Builder implements SimpleBuildStep, S
             }
 
             String command = buildCommand(this.workspace, outputFileName, this.resultsDir, this.settings, this.projectRoot);
-            output +="Command: \n" + command +"\n";
+            output.append("Command: \n" + command +"\n");
 
             Runtime rt = Runtime.getRuntime();
             Process proc = rt.exec(command);
@@ -131,16 +131,16 @@ public class TestStudioTestBuilder extends Builder implements SimpleBuildStep, S
 
             try {
 
-                output += "\nCommand output:\n";
+                output.append("\nCommand output:\n");
                 String s = null;
                 while ((s = stdInput.readLine()) != null) {
-                    output += s + "\n";
+                    output.append(s + "\n");
                 }
 
                 // read any errors from the attempted command
-                output += "\nSTD Error output (if any):\n";
+                output.append("\nSTD Error output (if any):\n");
                 while ((s = stdError.readLine()) != null) {
-                    output += s + "\n";
+                    output.append(s + "\n");
                 }
             } finally {
                 stdInput.close();
@@ -150,8 +150,8 @@ public class TestStudioTestBuilder extends Builder implements SimpleBuildStep, S
                 proc.waitFor();
             } catch (InterruptedException e) {
             }
-            output +="\nCommand exit code: " + proc.exitValue() +" \n";
-            return output;
+            output.append("\nCommand exit code: " + proc.exitValue() +" \n");
+            return output.toString();
         }
 
         private boolean fileExists(String file){
